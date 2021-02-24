@@ -1,0 +1,325 @@
+---
+jupyter:
+  jupytext:
+    notebook_metadata_filter: all,-language_info
+    split_at_heading: true
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.1'
+      jupytext_version: 1.2.4
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+# COVID, probability and the R value
+
+```{python}
+# Don't change this cell; just run it.
+import numpy as np  # The array library.
+
+# The OKpy testing system.
+from client.api.notebook import Notebook
+ok = Notebook('covid_r.ok')
+```
+
+As y'all know, the [R number of a
+disease](https://en.wikipedia.org/wiki/Basic_reproduction_number) is an index
+of its spread.
+
+Here we are discussing COVID-19 - an infectious disease.  The $R_t$ number for
+COVID-19 is the average number of new infections we expect per existing
+infection, at any particular time $t$.  The time $t$ is usually "now".
+
+For example, an $R_t$ of 2.5 means that we expect each person with a COVID-19
+infection to infect an average of 2.5 people.  As consequence, the number of
+infections grows very quickly.
+
+The $R_t$ number depends on many things.  We will think about some of them in
+this page.
+
+To make $R_t$ a bit easier to write, we will use "RT".
+
+## Factors for RT
+
+In order to pass on the disease, the infected person has to come in contact
+with a person who is susceptible.
+
+Let us say that, with no precautions, there is a 0.25 chance of an infected
+person passing on the disease to susceptible person that they come in contact
+with.  Call this the *transmission probability* or TP for short.
+
+```{python}
+# Transmission probability
+TP = 0.25
+```
+
+Now let us say, with no precautions, any given person comes into effective
+contact with 10 people.  *Effective contact* is contact such that the contact
+has the expected probability TP of passing on the disease.  Call *the number of
+effective contacts* - ECN. So, ECN = 10.
+
+```{python}
+# Effective contact number.
+ECN = 10
+```
+
+Let us assume that all ECN=10 of those people are susceptible.
+
+We can use simulation to show that this very simple model does indeed end up
+with an estimated RT of 2.5.
+
+For each single trial, we simulate one infected person infecting not-infected
+people.
+
+Here's one trial (one person):
+
+```{python}
+randoms = np.random.uniform(0, 1, size=ECN)
+# True if simulated infection, False otherwise.
+new_cases = randoms < TP
+new_case_count = np.count_nonzero(new_cases)
+new_case_count
+```
+
+Here we do many trials (simulate many infected people), and take the average.
+
+```{python}
+# Remind us of our assumed constants.
+TP = 0.25
+ECN = 10
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=ECN)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < TP
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT = np.mean(new_case_counts)
+# Show the result.
+est_RT
+```
+
+When the RT value is 1, the infection is in steady state; the number of
+infections does not change over time.  We want an RT value below 1, so the
+infection numbers reduce over time.
+
+Now assume that we have succeeded in implementing a universal mask-wearing
+policy.   This reduces the TP by half, from 0.25 to 0.125.  What is the RT now?
+
+```{python}
+#- Remind us of our assumed constants.
+TP_masked = 0.125
+ECN = 10
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=ECN)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < TP_masked
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT_masked = np.mean(new_case_counts)
+# Show the result.
+est_RT_masked
+```
+
+```{python}
+_ = ok.grade('q_est_RT_masked')
+```
+
+OK - that didn't quite cut it.  Now we want to add new measures, called
+"lockdowns", that reduce the number of effective contacts (ECN) per person.
+
+Say that, as well as the reduced TP - `TP_masked`, we also reduce ECN -
+`ECN_lockdown` - to 7 instead of 10.  What number do we estimate for RT now?
+
+```{python}
+#- Remind us of our assumed constants.
+TP_masked = 0.125
+ECN_lockdown = 7
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=ECN_lockdown)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < TP_masked
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT_masked_ld = np.mean(new_case_counts)
+# Show the result.
+est_RT_masked_ld
+```
+
+```{python}
+_ = ok.grade('q_est_RT_masked_ld')
+```
+
+
+Nice - problem sorted.
+
+But wait - it turns out that wearing a mask makes you look really uncool.  In
+order to express their devil-may-care individuality and skepticism of
+constituted authority, 15% of people decide that wearing a mask is not for
+them.  Therefore, call the probability of wearing a mask - `P_mask`.  `P_mask =
+0.85`.  Assume that wearing a mask only affects the probability that an
+infected person passes on the disease; it does not reduce the probability that
+a susceptible person will get the disease.  Thus, a mask wearer give their
+contacts a 0.125 chance of getting the disease, but someone who is too cool to
+wear a mask, gives each contact a 0.25 chance of getting the disease.
+
+Keeping our locked down ECN, what is the RT now?
+
+*Hint*: remember, each trial is one infected person.
+*Hint*: you may want a conditional statement somewhere.
+
+```{python}
+#- Remind us of our assumed constants.
+TP = 0.25
+TP_masked = 0.125
+ECN_lockdown = 7
+P_mask = 0.85
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Is this person a mask wearer?
+    if np.random.uniform(0, 1) < P_mask:
+        # Yes, mask.
+        this_tp = TP_masked
+    else:
+        # No mask.
+        this_tp = TP
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=ECN_lockdown)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < this_tp
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT_part_masked = np.mean(new_case_counts)
+# Show the result.
+est_RT_part_masked
+```
+
+```{python}
+_ = ok.grade('q_est_RT_part_masked')
+```
+
+It looks like things are going to work out more or less OK.
+
+But wait, it turns out that the same people who don't wear masks, also don't
+obey the lockdown restrictions.
+
+Specifically, those 15% of people who don't wear masks, also have more
+contacts.  In fact, they have the same number of effective contacts as they do
+without lockdown - 10.  Now what is the RT number?
+
+```{python}
+#- Remind us of our assumed constants.
+TP = 0.25
+TP_masked = 0.125
+ECN = 10
+ECN_lockdown = 7
+P_mask = 0.85
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Is this person a mask wearer?
+    if np.random.uniform(0, 1) < P_mask:
+        # Yes, mask.
+        this_tp = TP_masked
+        this_ecn = ECN_lockdown
+    else:
+        # No mask.
+        this_tp = TP
+        this_ecn = ECN
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=this_ecn)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < this_tp
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT_part_everything = np.mean(new_case_counts)
+# Show the result.
+est_RT_part_everything
+```
+
+```{python}
+_ = ok.grade('q_est_RT_part_everything')
+```
+
+## Challenge problem
+
+We go back to the original situation, with no lockdown, and no masks.
+
+```{python}
+# Remind us of our assumed constants.
+TP = 0.25
+ECN = 10
+n_iters = 10000
+new_case_counts = np.zeros(n_iters)
+for i in np.arange(n_iters):
+    # Give ECN people a TP chance of being infected.
+    randoms = np.random.uniform(0, 1, size=ECN)
+    # True if simulated infection, False otherwise.
+    new_cases = randoms < TP
+    new_case_counts[i] = np.count_nonzero(new_cases)
+est_RT = np.mean(new_case_counts)
+# Show the result.
+est_RT
+```
+
+Just as a note, we could work this particular answer out using simple
+probability.  You can think of probabilities as proportions, and proportions as
+probabilities.  In this case we have said that the probability of passing on
+the infection is `TP = 0.25`.  This is the same as saying that, in the long
+run, 0.25 is the *proportion* of people who will get the infection.  So, in
+this case, we can calculate the long-run RT by simply multiplying the number of
+susceptible people `ECN` by the probability=proportion who will get sick:
+
+```{python}
+# RT by calculation, in this simple case:
+RT_by_calculation = TP * ECN
+RT_by_calculation
+```
+
+You will see that, if you go up to the simulation cell above, and change the
+number of iterations to, say, 1000000, your estimate for RT gets even closer to
+the value you got from calculation above.  This is exactly what we mean by the
+*long run* in the paragraph above.
+
+Now we are going to vaccinate some proportion of the population.  Call this
+proportion `P_vaccinate`.  Assume vaccination gives 100% protection against
+getting the disease.  What does `P_vaccinate` have to be, such that `est_RT`
+above is 1.
+
+```{python}
+#- Your code here.  Or make a text cell and reason it out.
+# Use probability calculation instead of simulation.
+average_infections = TP * ECN
+print('RT, probability calculation', average_infections)
+# After vaccination, number of susceptibles is the non-vaccinated proportion.
+# ECN * (1 - P_vaccinate)
+# So we want this situation:
+# TP * ECN * (1 - P_vaccinate) == 1
+# Solving with algebra.
+est_P_vaccinate = 1 - 1 / (TP * ECN)
+print('Estimate for vaccination proportion', est_P_vaccinate)
+```
+
+```{python}
+_ = ok.grade('q_est_P_vaccinate')
+```
+
+## Done.
+
+Congratulations, you're done with the assignment!  Be sure to:
+
+- **run all the tests** (the next cell has a shortcut for that).
+- **Save and Checkpoint** from the `File` menu.
+
+```{python}
+# For your convenience, you can run this cell to run all the tests at once!
+import os
+_ = [ok.grade(q[:-3]) for q in os.listdir("tests") if q.startswith('q')]
+```
