@@ -9,5 +9,5 @@
 - Straight line relationships with correlation and regression.
 
 ## Textbooks
-https://matthew-brett.github.io/cfd2020/intro.html
+https://matthew-brett.github.io/cfd2020/intro.html \
 https://learning.edx.org/course/course-v1:BerkeleyX+Data8.1x+1T2018/home
